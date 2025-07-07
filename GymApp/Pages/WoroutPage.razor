@@ -1,0 +1,156 @@
+﻿@page "/workoutpage"
+@using GymApp.Domain.Entities
+@using GymApp.Domain.Enums
+@using GymApp.Domain.ValueObjects
+@using Microsoft.EntityFrameworkCore;
+@using GymApp.Infrastructure.Persistence
+@inject PostgresDbContext Db
+
+<h3 style="margin-top: 20px;">Nowy trening</h3>
+
+<div style="margin-bottom: 20px;">
+    <select @bind="selectedDay" style="margin-right: 10px; padding: 5px;">
+        <option value="TrainingDayType.ChestShoulders">Klatka piersiowa, barki</option>
+        <option value="TrainingDayType.BackBiceps">Plecy, biceps</option>
+        <option value="TrainingDayType.LegsAbsTriceps">Nogi, brzuch, triceps</option>
+    </select>
+    <button @onclick="LoadOrCreateWorkout" style="padding: 5px 10px;">Wczytaj trening</button>
+</div>
+
+@if (workout != null)
+{
+    <div style="margin-bottom: 20px;">
+        <h4>Dodaj ćwiczenie:</h4>
+        <input @bind="exerciseName" placeholder="Nazwa ćwiczenia" style="margin-right: 10px; padding: 5px;" />
+        <button @onclick="AddExercise" style="padding: 5px 10px;">Dodaj</button>
+    </div>
+
+    <hr />
+    <h4>Ćwiczenia:</h4>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <thead>
+            <tr>
+                <th style="text-align: left; padding: 10px;">Nazwa</th>
+                <th style="text-align: left; padding: 10px;">Zmień nazwę</th>
+                <th style="text-align: left; padding: 10px;">Serie</th>
+                <th style="text-align: left; padding: 10px;">Edytuj serie</th>
+                <th style="text-align: left; padding: 10px;">Usuń</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ex in workout.Exercises.ToList())
+            {
+                <tr style="border-top: 1px solid #ccc;">
+                    <td style="padding: 10px; vertical-align: top;">@ex.Name</td>
+                    <td style="padding: 10px; vertical-align: top;">
+                        <input type="text" @bind="exerciseNameInputs[ex.Id]" style="width: 100%;" />
+                        <button @onclick="() => RenameExercise(ex.Id)">Zmień</button>
+                    </td>
+                    <td style="padding: 10px; vertical-align: top;">
+                        @for (int i = 0; i < ex.Sets.Count; i++)
+                        {
+                            <div style="margin-bottom: 8px;">
+                                <input type="number" style="width:60px; margin-right: 5px;" @bind="ex.Sets[i].Reps" /> x
+                                <input type="number" style="width:60px; margin-left: 5px;" @bind="ex.Sets[i].Weight" /> kg
+                            </div>
+                        }
+                    </td>
+                    <td style="padding: 10px; vertical-align: top;">
+                        <input type="number" placeholder="Powtórzenia" @bind="setInputs[ex.Id].Reps" style="width:80px; margin-right: 5px;" />
+                        <input type="number" placeholder="Ciężar (kg)" @bind="setInputs[ex.Id].Weight" style="width:80px; margin-right: 5px;" />
+                        <button @onclick="() => AddSetToExercise(ex.Id)">+</button>
+                    </td>
+                    <td style="padding: 10px; vertical-align: top;">
+                        <button class="btn btn-danger" @onclick="() => RemoveExercise(ex.Id)">Usuń</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button class="btn btn-primary" style="margin-top: 20px; padding: 8px 16px;" @onclick="SaveWorkout">Zapisz zmiany</button>
+}
+
+@code {
+    private TrainingDayType selectedDay;
+    private Workout? workout;
+    private string exerciseName;
+
+    private Dictionary<Guid, SetInputModel> setInputs = new();
+    private Dictionary<Guid, string> exerciseNameInputs = new();
+
+    async Task LoadOrCreateWorkout()
+    {
+        workout = await Db.Workouts.Include(w => w.Exercises).ThenInclude(e => e.Sets)
+            .FirstOrDefaultAsync(w => w.TrainingDay == selectedDay && w.Date.Date == DateTime.UtcNow.Date);
+
+        if (workout == null)
+        {
+            workout = new Workout(selectedDay);
+            Db.Workouts.Add(workout);
+            await Db.SaveChangesAsync();
+        }
+
+        setInputs = workout.Exercises.ToDictionary(e => e.Id, e => new SetInputModel());
+        exerciseNameInputs = workout.Exercises.ToDictionary(e => e.Id, e => e.Name);
+    }
+
+    async Task AddExercise()
+    {
+        if (workout == null || string.IsNullOrWhiteSpace(exerciseName)) return;
+
+        var ex = new Exercise(exerciseName);
+        workout.AddExercise(ex);
+        setInputs[ex.Id] = new SetInputModel();
+        exerciseNameInputs[ex.Id] = ex.Name;
+
+        await Db.SaveChangesAsync();
+        exerciseName = string.Empty;
+    }
+
+    async Task AddSetToExercise(Guid exerciseId)
+    {
+        if (workout == null) return;
+
+        var exercise = workout.Exercises.FirstOrDefault(e => e.Id == exerciseId);
+        if (exercise == null) return;
+
+        var input = setInputs[exerciseId];
+        var set = new Set(input.Reps, input.Weight);
+        exercise.AddSet(set);
+    }
+
+    async Task RenameExercise(Guid exerciseId)
+    {
+        if (workout == null) return;
+
+        var exercise = workout.Exercises.FirstOrDefault(e => e.Id == exerciseId);
+        if (exercise == null) return;
+
+        var newName = exerciseNameInputs[exerciseId];
+        exercise.ChangeName(newName);
+    }
+
+    async Task RemoveExercise(Guid exerciseId)
+    {
+        if (workout == null) return;
+
+        var exercise = workout.Exercises.FirstOrDefault(e => e.Id == exerciseId);
+        if (exercise == null) return;
+
+        workout.Exercises.Remove(exercise);
+        await Db.SaveChangesAsync();
+    }
+
+    async Task SaveWorkout()
+    {
+        if (workout == null) return;
+        await Db.SaveChangesAsync();
+    }
+
+    public class SetInputModel
+    {
+        public int Reps { get; set; }
+        public double Weight { get; set; }
+    }
+}
