@@ -1,0 +1,2 @@
+﻿dotnet ef migrations add WorkoutUpdate --project GymApp.Infrastructure --startup-project GymApp
+dotnet ef database update --project GymApp.Infrastructure --startup-project GymApp

@@ -1,0 +1,90 @@
+﻿@page "/workouthistory"
+@using GymApp.Domain.Entities
+@using Microsoft.EntityFrameworkCore
+@inject GymApp.Infrastructure.Persistence.PostgresDbContext Db
+
+<h3>Historia treningów</h3>
+
+<select @onchange="LoadSelectedWorkout" style="margin-bottom: 20px; padding: 5px;">
+    <option value="">-- Wybierz trening --</option>
+    @foreach (var item in workoutList)
+    {
+        <option value="@item.Id">
+            @(string.IsNullOrWhiteSpace(item.CustomName) ? $"{item.TrainingDay} - {item.Date:yyyy-MM-dd}" : $"{item.CustomName} ({item.Date:yyyy-MM-dd})")
+        </option>
+    }
+</select>
+
+@if (selectedWorkout != null)
+{
+    <div style="margin-bottom: 20px;">
+        <h4>Trening: @(selectedWorkout.CustomName ?? selectedWorkout.TrainingDay.ToString()) (@selectedWorkout.Date.ToString("yyyy-MM-dd"))</h4>
+        <button class="btn btn-danger" @onclick="DeleteSelectedWorkout">🗑️ Usuń ten trening</button>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th style="text-align: left; padding: 10px;">Ćwiczenie</th>
+                <th style="text-align: left; padding: 10px;">Serie</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ex in selectedWorkout.Exercises)
+            {
+                <tr style="border-top: 1px solid #ccc;">
+                    <td style="padding: 10px;">@ex.Name</td>
+                    <td style="padding: 10px;">
+                        @foreach (var set in ex.Sets)
+                        {
+                            <div>@set.Reps x @set.Weight kg</div>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Workout> workoutList = new();
+    private Workout? selectedWorkout;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshWorkoutList();
+    }
+
+    async Task LoadSelectedWorkout(ChangeEventArgs e)
+    {
+        var workoutId = e.Value?.ToString();
+        if (Guid.TryParse(workoutId, out var id))
+        {
+            selectedWorkout = await Db.Workouts
+                .Include(w => w.Exercises)
+                .ThenInclude(e => e.Sets)
+                .FirstOrDefaultAsync(w => w.Id == id);
+        }
+    }
+
+    async Task DeleteSelectedWorkout()
+    {
+        if (selectedWorkout == null) return;
+
+        Db.Workouts.Remove(selectedWorkout);
+        await Db.SaveChangesAsync();
+
+        selectedWorkout = null;
+        await RefreshWorkoutList();
+    }
+
+    private async Task RefreshWorkoutList()
+    {
+        workoutList = await Db.Workouts
+            .Include(w => w.Exercises)
+            .ThenInclude(e => e.Sets)
+            .OrderByDescending(w => w.Date)
+            .Take(20)
+            .ToListAsync();
+    }
+}

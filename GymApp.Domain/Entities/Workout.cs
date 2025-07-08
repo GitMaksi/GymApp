@@ -4,16 +4,21 @@ namespace GymApp.Domain.Entities
 {
     public class Workout
     {
-        public Guid Id { get; private set; } = Guid.NewGuid();
-        public DateTime Date { get; private set; } = DateTime.UtcNow;
-        public TrainingDayType TrainingDay { get; private set; }
-        public List<Exercise> Exercises { get; private set; } = new();
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public DateTime Date { get; set; }
+        public TrainingDayType TrainingDay { get; set; }
+        public string? CustomName { get; set; }
+        public ICollection<Exercise> Exercises { get; set; } = new List<Exercise>();
 
         public Workout(TrainingDayType trainingDay)
         {
+            Date = DateTime.UtcNow.Date;
             TrainingDay = trainingDay;
         }
 
-        public void AddExercise(Exercise exercise) => Exercises.Add(exercise);
+        public void AddExercise(Exercise exercise)
+        {
+            Exercises.Add(exercise);
+        }
     }
 }
