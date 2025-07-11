@@ -21,7 +21,6 @@
 
     select, input[type="text"], input[type="number"], button {
         width: 100%;
-        max-width: 100%;
         margin-bottom: 10px;
         padding: 10px;
         font-size: 16px;
@@ -39,11 +38,8 @@
     th, td {
         text-align: left;
         padding: 12px;
+        vertical-align: top;
     }
-
-        td input {
-            width: 100%;
-        }
 
     .btn-danger {
         background-color: #e74c3c;
@@ -58,13 +54,14 @@
         margin-top: 20px;
     }
 
-    .btn-danger:hover,
-    .btn-success:hover {
-        opacity: 0.9;
-    }
+        .btn-danger:hover,
+        .btn-success:hover {
+            opacity: 0.9;
+        }
 
     @@media (max-width: 600px) {
         th, td
+
     {
         font-size: 14px;
         padding: 8px;
@@ -143,12 +140,14 @@
 
                                 var diff = previousWeight.HasValue ? set.Weight - previousWeight.Value : (double?)null;
 
-                                <div style="margin-bottom: 8px;">
-                                    <input type="number" value="@set.Reps" @onchange="e => UpdateSetReps(set, e)" /> x
-                                    <input type="number" value="@set.Weight" @onchange="e => UpdateSetWeight(set, e)" /> kg
+                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                    <input type="number" value="@set.Reps" @onchange="e => UpdateSetReps(set, e)" style="width: 55px;" />
+                                    <span>/</span>
+                                    <input type="number" value="@set.Weight" @onchange="e => UpdateSetWeight(set, e)" style="width: 60px;" />
+                                    <span>kg</span>
                                     @if (diff.HasValue && diff.Value != 0)
                                     {
-                                        <span style="margin-left: 8px; color:@(diff > 0 ? "green" : "red")">
+                                        <span style="color:@(diff > 0 ? "green" : "red")">
                                             @(diff > 0 ? $"+{diff} ↑" : $"{diff} ↓")
                                         </span>
                                     }
