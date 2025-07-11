@@ -5,6 +5,7 @@
 @using Microsoft.EntityFrameworkCore
 @using GymApp.Infrastructure.Persistence
 @using System.Text.Json
+@inject IWebHostEnvironment Env
 @inject PostgresDbContext Db
 
 <style>
@@ -218,7 +219,7 @@
         if (postfix > 1)
             workout.CustomName = $"{selectedDay} - {postfix}";
 
-        var configPath = Path.Combine(Environment.CurrentDirectory, "wwwroot", "data", "baseExercises.json");
+        var configPath = Path.Combine(Env.WebRootPath, "data", "baseExercises.json");
         if (File.Exists(configPath))
         {
             var json = await File.ReadAllTextAsync(configPath);
