@@ -3,9 +3,12 @@
 @using Microsoft.EntityFrameworkCore
 @inject GymApp.Infrastructure.Persistence.PostgresDbContext Db
 
-<h3>Historia treningów</h3>
+@* Chart.js CDN *@
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<select @onchange="LoadSelectedWorkout" style="margin-bottom: 20px; padding: 5px;">
+<h3 style="color: #fff; font-family: 'Orbitron', sans-serif;">📆 Historia treningów</h3>
+
+<select @onchange="LoadSelectedWorkout" style="margin-bottom: 20px; padding: 10px; background-color: #222; color: #fff; border: 1px solid #444; border-radius: 8px;">
     <option value="">-- Wybierz trening --</option>
     @foreach (var item in workoutList)
     {
@@ -18,33 +21,57 @@
 @if (selectedWorkout != null)
 {
     <div style="margin-bottom: 20px;">
-        <h4>Trening: @(selectedWorkout.CustomName ?? selectedWorkout.TrainingDay.ToString()) (@selectedWorkout.Date.ToString("yyyy-MM-dd"))</h4>
+        <h4 style="color: #fff;">Trening: @(selectedWorkout.CustomName ?? selectedWorkout.TrainingDay.ToString()) (@selectedWorkout.Date:yyyy-MM-dd)</h4>
         <button class="btn btn-danger" @onclick="DeleteSelectedWorkout">🗑️ Usuń ten trening</button>
     </div>
 
-    <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-            <tr>
-                <th style="text-align: left; padding: 10px;">Ćwiczenie</th>
-                <th style="text-align: left; padding: 10px;">Serie</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var ex in selectedWorkout.Exercises)
-            {
-                <tr style="border-top: 1px solid #ccc;">
-                    <td style="padding: 10px;">@ex.Name</td>
-                    <td style="padding: 10px;">
-                        @foreach (var set in ex.Sets)
-                        {
-                            <div>@set.Reps x @set.Weight kg</div>
-                        }
-                    </td>
+    <div style="background-color: #1b1b1b; padding: 20px; border-radius: 12px; color: #ddd;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align: left; padding: 10px;">Ćwiczenie</th>
+                    <th style="text-align: left; padding: 10px;">Serie</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var ex in selectedWorkout.Exercises)
+                {
+                    <tr style="border-top: 1px solid #444;">
+                        <td style="padding: 10px; font-weight: bold;">@ex.Name</td>
+                        <td style="padding: 10px;">
+                            @foreach (var set in ex.Sets)
+                            {
+                                <div>@set.Reps x @set.Weight kg</div>
+                            }
+
+                            <canvas id="chart-@ex.Id" width="400" height="100" style="margin-top: 10px;"></canvas>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
+
+<style>
+    body {
+        background-color: #121212;
+        font-family: 'Orbitron', sans-serif;
+    }
+
+    .btn-danger {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+</style>
 
 @code {
     private List<Workout> workoutList = new();
@@ -64,6 +91,11 @@
                 .Include(w => w.Exercises)
                 .ThenInclude(e => e.Sets)
                 .FirstOrDefaultAsync(w => w.Id == id);
+
+            StateHasChanged();
+
+            await Task.Delay(100); // zapewnij że DOM się zaktualizował
+            await LoadChartsForWorkout();
         }
     }
 
@@ -86,5 +118,56 @@
             .OrderByDescending(w => w.Date)
             .Take(20)
             .ToListAsync();
+    }
+
+    private async Task LoadChartsForWorkout()
+    {
+        if (selectedWorkout == null) return;
+
+        foreach (var exercise in selectedWorkout.Exercises)
+        {
+            var weights = exercise.Sets.Select(s => s.Weight).ToArray();
+            var reps = exercise.Sets.Select(s => s.Reps).ToArray();
+            var labels = Enumerable.Range(1, weights.Length).Select(i => $"Set {i}").ToArray();
+
+            var chartDataJson = System.Text.Json.JsonSerializer.Serialize(weights);
+            var labelsJson = System.Text.Json.JsonSerializer.Serialize(labels);
+
+            await JSRuntime.InvokeVoidAsync("eval", $@"
+                var ctx = document.getElementById('chart-{exercise.Id}');
+                if (ctx) {{
+                    new Chart(ctx, {{
+                        type: 'bar',
+                        data: {{
+                            labels: {labelsJson},
+                            datasets: [{{
+                                label: 'Ciężar (kg)',
+                                data: {chartDataJson},
+                                backgroundColor: 'rgba(0, 153, 255, 0.6)',
+                                borderRadius: 8
+                            }}]
+                        }},
+                        options: {{
+                            scales: {{
+                                y: {{
+                                    beginAtZero: true,
+                                    ticks: {{ color: '#ccc' }},
+                                    grid: {{ color: '#333' }}
+                                }},
+                                x: {{
+                                    ticks: {{ color: '#ccc' }},
+                                    grid: {{ color: '#333' }}
+                                }}
+                            }},
+                            plugins: {{
+                                legend: {{
+                                    labels: {{ color: '#ccc' }}
+                                }}
+                            }}
+                        }}
+                    }});
+                }}
+            ");
+        }
     }
 }
