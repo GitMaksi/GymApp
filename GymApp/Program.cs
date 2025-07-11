@@ -1,4 +1,4 @@
-using GymApp.Infrastructure.Persistence;
+﻿using GymApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,5 +22,11 @@ app.UseRouting();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<PostgresDbContext>();
+    db.Database.Migrate();
+}
 app.Run();
 
