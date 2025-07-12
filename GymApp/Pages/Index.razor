@@ -3,6 +3,7 @@
 <PageTitle>GymApp</PageTitle>
 
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+
 <style>
     body {
         background-color: #121212;
@@ -18,6 +19,13 @@
         border-radius: 16px;
         text-align: center;
         box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+    }
+
+    .logo-container img {
+        max-width: 200px;
+        height: auto;
+        margin-bottom: 20px;
+        filter: drop-shadow(0 0 5px rgba(255,255,255,0.15));
     }
 
     h1 {
@@ -57,7 +65,10 @@
 </style>
 
 <div class="welcome-container">
-    <h1>🏋️‍♂️ Gym Tracker</h1>
+    <div class="logo-container">
+        <img src="images/gym-logo.png" alt="Gym Tracker Logo" style="max-width: 180px; margin-bottom: 20px;" />
+    </div>
+
     <p>Stareńki, życzę ci miłego treningysia!!!</p>
 
     <div class="nav-buttons">

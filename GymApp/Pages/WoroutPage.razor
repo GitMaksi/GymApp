@@ -25,9 +25,58 @@
     }
 
     h3, h4 {
-        margin-top: 20px;
+        margin-top: 30px;
         margin-bottom: 10px;
         color: #ffffff;
+        text-align: center;
+    }
+
+    .section {
+        margin-top: 40px;
+        margin-bottom: 30px;
+    }
+
+    .divider {
+        border: none;
+        height: 2px;
+        background-color: #333;
+        margin: 30px 0;
+    }
+
+    .header-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 30px;
+    }
+
+    .exercise-header {
+        margin-top: 30px;
+        font-size: 24px;
+        text-align: center;
+        border-bottom: 2px solid #555;
+        padding-bottom: 8px;
+        margin-bottom: 20px;
+    }
+
+    .exercise-row {
+        margin-bottom: 30px;
+    }
+
+    .exercise-set {
+        margin-bottom: 10px;
+    }
+
+    .exercise-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .centered {
+        text-align: center;
     }
 
     select, input[type="text"], input[type="number"], button, textarea {
@@ -42,10 +91,18 @@
         box-sizing: border-box;
     }
 
-        .exercise-input:focus, select:focus, input:focus, button:focus, textarea:focus {
-            outline: none;
-            border-color: #888;
-        }
+    .btn-danger {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+    }
+
+    .btn-success {
+        background-color: #2ecc71;
+        color: white;
+        border: none;
+        margin-top: 20px;
+    }
 
     .exercise-input {
         background-color: #2c2c2c;
@@ -92,19 +149,6 @@
         vertical-align: top;
     }
 
-    .btn-danger {
-        background-color: #e74c3c;
-        color: white;
-        border: none;
-    }
-
-    .btn-success {
-        background-color: #2ecc71;
-        color: white;
-        border: none;
-        margin-top: 20px;
-    }
-
     .summary-box {
         background-color: #1b1b1b;
         padding: 20px;
@@ -112,19 +156,19 @@
         margin-top: 20px;
     }
 
-    .comparison {
-        margin-top: 16px;
-        padding: 10px;
-        background-color: #262626;
-        border-radius: 8px;
-        border: 1px solid #333;
+    .divider-title {
+        font-size: 20px;
+        color: #ccc;
+        text-align: center;
+        margin-bottom: 12px;
     }
 
-        .comparison span {
-            display: block;
-            margin-bottom: 6px;
-        }
+    hr.divider.thick {
+        background-color: #444;
+        height: 3px;
+    }
 </style>
+
 
 <div class="container">
     <h3>Nowy trening</h3>
@@ -135,13 +179,24 @@
             <option value="@day">@day.ToString()</option>
         }
     </select>
+
     <button @onclick="LoadOrCreateWorkout">Nowy trening</button>
 
     @if (workout != null)
     {
-        <h4>Dodaj ćwiczenie:</h4>
-        <input @bind="exerciseName" @ref="exerciseInputRef" placeholder="Nazwa ćwiczenia" class="exercise-input @(shouldShake ? "shake" : "")" />
-        <button @onclick="AddExercise">Dodaj</button>
+        <button class="btn btn-success @(shouldShakeButton ? "shake" : "")" @onclick="LoadPreviousWorkoutValues">Załaduj poprzednie wartości</button>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn btn-success" @onclick="ToggleExerciseInput">Dodaj ćwiczenie</button>
+        </div>
+
+        @if (showAddExerciseInput)
+        {
+            <div class="fade-slide">
+                <input @bind="exerciseName" @ref="exerciseInputRef" placeholder="Nazwa ćwiczenia" class="exercise-input @(shouldShake ? "shake" : "")" />
+                <button @onclick="AddExercise">Dodaj</button>
+            </div>
+        }
 
         <h4>Ćwiczenia:</h4>
         <table>
@@ -158,33 +213,18 @@
                 {
                     <tr>
                         <td>@ex.Name</td>
-                        <td><input type="text" value="@exerciseNameInputs[ex.Id]" @onchange="e => OnExerciseNameChanged(ex.Id, e)" /></td>
                         <td>
-                            @for (int i = 0; i < 4; i++)
+                            <input type="text" value="@exerciseNameInputs[ex.Id]" @onchange="e => OnExerciseNameChanged(ex.Id, e)" />
+                        </td>
+                        <td>
+                            @for (int i = 0; i < ex.Sets.Count; i++)
                             {
-                                var set = ex.Sets.ElementAt(i);
-                                double? prevWeight = null;
-
-                                var prevEx = previousWorkout?.Exercises.FirstOrDefault(e => e.Name == ex.Name);
-                                if (prevEx != null && prevEx.Sets.Count > i)
-                                {
-                                    var prevExSets = prevEx.Sets.ToArray();
-                                    prevWeight = prevExSets[i].Weight;
-                                }
-
-                                var diff = prevWeight.HasValue ? set.Weight - prevWeight.Value : (double?)null;
-
+                                var set = ex.Sets.ToArray()[i];
                                 <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
                                     <input type="number" value="@set.Reps" @onchange="e => UpdateSetReps(set, e)" style="width: 50px;" />
                                     <span>/</span>
                                     <input type="number" value="@set.Weight" @onchange="e => UpdateSetWeight(set, e)" style="width: 60px;" />
                                     <span>kg</span>
-                                    @if (diff.HasValue && diff.Value != 0)
-                                    {
-                                        <span style="color:@(diff > 0 ? "lightgreen" : "red")">
-                                            @(diff > 0 ? $"+{diff} ↑" : $"{diff} ↓")
-                                        </span>
-                                    }
                                 </div>
                             }
                         </td>
@@ -201,39 +241,6 @@
         <div class="summary-box">
             <h4>🎉 Gratulacje! Trening zakończony.</h4>
             <textarea placeholder="Wpisz podsumowanie dnia treningowego..." rows="4"></textarea>
-
-            @if (previousWorkout != null)
-            {
-                <div class="comparison">
-                    <h4>📊 Porównanie z poprzednim treningiem:</h4>
-                    @foreach (var ex in previousWorkout.Exercises)
-                    {
-                        var currentEx = lastWorkout?.Exercises.FirstOrDefault(e => e.Name == ex.Name);
-                        if (currentEx == null)
-                        {
-                            <span><b>@ex.Name:</b> brak w aktualnym treningu ❌</span>
-                        }
-                        else
-                        {
-                            int diffSets = currentEx.Sets.Count - ex.Sets.Count;
-                            double totalWeightPrev = ex.Sets.Sum(s => s.Weight);
-                            double totalWeightNow = currentEx.Sets.Sum(s => s.Weight);
-                            double weightDiff = totalWeightNow - totalWeightPrev;
-
-                            <span>
-                                <b>@ex.Name:</b>
-                                Serie: <span style="color:@(diffSets > 0 ? "lightgreen" : diffSets < 0 ? "tomato" : "gray")">
-                                    @(diffSets > 0 ? $"+{diffSets} ↑" : diffSets < 0 ? $"{diffSets} ↓" : "0 =")
-                                </span>
-                                &nbsp;&nbsp;
-                                Ciężar: <span style="color:@(weightDiff > 0 ? "lightgreen" : weightDiff < 0 ? "tomato" : "gray")">
-                                    @(weightDiff > 0 ? $"+{weightDiff}kg ↑" : weightDiff < 0 ? $"{weightDiff}kg ↓" : "0kg =")
-                                </span>
-                            </span>
-                        }
-                    }
-                </div>
-            }
         </div>
     }
 </div>
@@ -242,44 +249,73 @@
     private TrainingDayType selectedDay;
     private Workout? workout;
     private Workout? previousWorkout;
-    private Workout? lastWorkout;
     private string exerciseName;
     private Dictionary<Guid, string> exerciseNameInputs = new();
     private bool showSummary = false;
     private bool shouldShake = false;
+    private bool shouldShakeButton = false;
+    private bool showAddExerciseInput = false;
     private ElementReference exerciseInputRef;
+
+    private readonly List<int> defaultReps = new() { 8, 8, 7, 6 };
 
     async Task LoadOrCreateWorkout()
     {
         showSummary = false;
 
-        previousWorkout = await Db.Workouts
-            .Where(w => w.TrainingDay == selectedDay && w.Date < DateTime.UtcNow.Date)
-            .OrderByDescending(w => w.Date)
-            .FirstOrDefaultAsync();
-
         workout = new Workout(selectedDay) { Date = DateTime.UtcNow.Date };
 
-        var key = selectedDay.ToString();
-        if (StaticBaseWorkouts.Days.TryGetValue(key, out var exerciseNames))
+        if (StaticBaseWorkouts.Days.TryGetValue(selectedDay.ToString(), out var exerciseNames))
         {
             foreach (var name in exerciseNames)
             {
                 var ex = new Exercise(name);
-                var prevEx = previousWorkout?.Exercises.FirstOrDefault(e => e.Name == name).Sets.ToArray();
-
                 for (int i = 0; i < 4; i++)
-                {
-                    var reps = i switch { 0 => 8, 1 => 8, 2 => 7, _ => 6 };
-                    var weight = prevEx != null && prevEx.Count() > i ? prevEx[i].Weight : 0;
-                    ex.Sets.Add(new SetEntity { Reps = reps, Weight = weight });
-                }
-
+                    ex.Sets.Add(new SetEntity { Reps = defaultReps[i], Weight = 0 });
                 workout.Exercises.Add(ex);
             }
         }
 
         exerciseNameInputs = workout.Exercises.ToDictionary(e => e.Id, e => e.Name);
+
+        previousWorkout = await Db.Workouts
+            .Where(w => w.TrainingDay == selectedDay)
+            .OrderByDescending(w => w.Date)
+            .Include(w => w.Exercises)
+            .ThenInclude(e => e.Sets)
+            .FirstOrDefaultAsync();
+    }
+
+    async Task LoadPreviousWorkoutValues()
+    {
+        if (workout == null)
+            return;
+
+        if (previousWorkout == null)
+        {
+            shouldShakeButton = true;
+            StateHasChanged();
+            await Task.Delay(500);
+            shouldShakeButton = false;
+            StateHasChanged();
+
+            await JS.InvokeVoidAsync("alert", "Brak poprzedniego treningu do załadowania!");
+            return;
+        }
+
+        foreach (var ex in workout.Exercises)
+        {
+            var prev = previousWorkout.Exercises.FirstOrDefault(e => e.Name == ex.Name);
+            if (prev == null) continue;
+
+            for (int i = 0; i < Math.Min(ex.Sets.Count, prev.Sets.Count); i++)
+            {
+                ex.Sets.ToArray()[i].Weight = prev.Sets.ToArray()[i].Weight;
+                ex.Sets.ToArray()[i].Reps = prev.Sets.ToArray()[i].Reps;
+            }
+        }
+
+        await Db.SaveChangesAsync();
     }
 
     async Task SaveWorkout()
@@ -289,7 +325,6 @@
         Db.Workouts.Add(workout);
         await Db.SaveChangesAsync();
 
-        lastWorkout = workout;
         workout = null;
         exerciseName = string.Empty;
         exerciseNameInputs.Clear();
@@ -310,16 +345,14 @@
 
         var ex = new Exercise(exerciseName);
         for (int i = 0; i < 4; i++)
-        {
-            var reps = i switch { 0 => 8, 1 => 8, 2 => 7, _ => 6 };
-            ex.Sets.Add(new SetEntity { Reps = reps, Weight = 0 });
-        }
+            ex.Sets.Add(new SetEntity { Reps = defaultReps[i], Weight = 0 });
 
         workout.AddExercise(ex);
         exerciseNameInputs[ex.Id] = ex.Name;
 
         await Db.SaveChangesAsync();
         exerciseName = string.Empty;
+        showAddExerciseInput = false;
     }
 
     async Task RemoveExercise(Guid exerciseId)
@@ -366,4 +399,12 @@
 
         await Db.SaveChangesAsync();
     }
+
+    void ToggleExerciseInput()
+    {
+        showAddExerciseInput = !showAddExerciseInput;
+    }
+
+    [Inject]
+    private IJSRuntime JS { get; set; }
 }
