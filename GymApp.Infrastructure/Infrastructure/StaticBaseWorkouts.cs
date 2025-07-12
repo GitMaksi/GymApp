@@ -13,7 +13,7 @@ namespace GymApp.Infrastructure.Infrastructure
             {
                 "ChestShoulders", new List<string>
                 {
-                    "Wyciskanie sztangi", "Wyciskanie hantli", "Rozpiętki", "Wyciskanie na barki"
+                    "Wyciskanie hantli skos górny", "Rozpiętki na maszynie", "Rozpiętki na ławce", "Wyciskanie hantli na barki", "Dipy na klate", "Ściąganie linek", "Unoszenie hantli bokiem", "Reverse na maszynie rozpiętki",
                 }
             },
             {
