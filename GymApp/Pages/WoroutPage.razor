@@ -189,7 +189,6 @@
             <thead>
                 <tr>
                     <th>Nazwa</th>
-                    <th>Zmień nazwę</th>
                     <th>Serie</th>
                     <th>Usuń</th>
                 </tr>
@@ -198,8 +197,7 @@
                 @foreach (var ex in workout.Exercises)
                 {
                     <tr>
-                        <td>@ex.Name</td>
-                        <td><input type="text" value="@exerciseNameInputs[ex.Id]" @onchange="e => OnExerciseNameChanged(ex.Id, e)" /></td>
+                        <td>@ex.Name</td>                   
                         <td>
                             @for (int i = 0; i < ex.Sets.Count; i++)
                             {
@@ -370,23 +368,7 @@
             set.Weight = weight;
             await Db.SaveChangesAsync();
         }
-    }
-
-    async Task OnExerciseNameChanged(Guid exerciseId, ChangeEventArgs e)
-    {
-        if (workout == null) return;
-
-        var newName = e.Value?.ToString();
-        if (string.IsNullOrWhiteSpace(newName)) return;
-
-        var exercise = workout.Exercises.FirstOrDefault(e => e.Id == exerciseId);
-        if (exercise == null) return;
-
-        exercise.ChangeName(newName);
-        exerciseNameInputs[exerciseId] = newName;
-
-        await Db.SaveChangesAsync();
-    }
+    }    
 
     void ToggleExerciseInput()
     {
