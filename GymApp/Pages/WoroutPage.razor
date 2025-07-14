@@ -249,7 +249,7 @@
     {
         showSummary = false;
 
-        workout = new Workout(selectedDay) { Date = DateTime.UtcNow.Date };
+        workout = new Workout(selectedDay) { Date = DateTime.UtcNow };
 
         if (StaticBaseWorkouts.Days.TryGetValue(selectedDay.ToString(), out var exerciseNames))
         {
