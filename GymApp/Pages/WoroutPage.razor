@@ -4,6 +4,7 @@
 @using GymApp.Infrastructure.Infrastructure
 @using Microsoft.EntityFrameworkCore
 @using GymApp.Infrastructure.Persistence
+@using System.Text.Json
 @inject IWebHostEnvironment Env
 @inject PostgresDbContext Db
 
@@ -244,11 +245,23 @@
     private ElementReference exerciseInputRef;
 
     private readonly List<int> defaultReps = new() { 8, 8, 7, 6 };
+    private const string WorkoutSnapshotKey = "workout_snapshot";
+
+    private bool isFirstRender = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && isFirstRender)
+        {
+            isFirstRender = false;
+            await LoadSnapshotAsync();
+            StateHasChanged();
+        }
+    }
 
     async Task LoadOrCreateWorkout()
     {
         showSummary = false;
-
         workout = new Workout(selectedDay) { Date = DateTime.UtcNow };
 
         if (StaticBaseWorkouts.Days.TryGetValue(selectedDay.ToString(), out var exerciseNames))
@@ -258,6 +271,8 @@
                 var ex = new Exercise(name);
                 for (int i = 0; i < 4; i++)
                     ex.Sets.Add(new SetEntity { Reps = defaultReps[i], Weight = 0 });
+
+                ex.Sets = ex.Sets.OrderByDescending(s => s.Reps).ToList();
                 workout.Exercises.Add(ex);
             }
         }
@@ -270,14 +285,13 @@
             .Include(w => w.Exercises)
             .ThenInclude(e => e.Sets)
             .FirstOrDefaultAsync();
+
+        await SaveSnapshotAsync();
     }
 
     async Task LoadPreviousWorkoutValues()
     {
-        if (workout == null)
-            return;
-
-        if (previousWorkout == null)
+        if (workout == null || previousWorkout == null)
         {
             shouldShakeButton = true;
             StateHasChanged();
@@ -289,19 +303,29 @@
             return;
         }
 
-        foreach (var ex in workout.Exercises)
+        foreach (var prevEx in previousWorkout.Exercises)
         {
-            var prev = previousWorkout.Exercises.FirstOrDefault(e => e.Name == ex.Name);
-            if (prev == null) continue;
-
-            for (int i = 0; i < Math.Min(ex.Sets.Count, prev.Sets.Count); i++)
+            var currentEx = workout.Exercises.FirstOrDefault(e => e.Name == prevEx.Name);
+            if (currentEx == null)
             {
-                ex.Sets.ToArray()[i].Weight = prev.Sets.ToArray()[i].Weight;
-                ex.Sets.ToArray()[i].Reps = prev.Sets.ToArray()[i].Reps;
+                currentEx = new Exercise(prevEx.Name);
+                workout.Exercises.Add(currentEx);
             }
+
+            currentEx.Sets.Clear();
+            foreach (var prevSet in prevEx.Sets.OrderByDescending(s => s.Reps))
+            {
+                currentEx.Sets.Add(new SetEntity
+                {
+                    Reps = prevSet.Reps,
+                    Weight = prevSet.Weight
+                });
+            }
+
+            currentEx.Sets = currentEx.Sets.OrderByDescending(s => s.Reps).ToList();
         }
 
-        await Db.SaveChangesAsync();
+        await SaveSnapshotAsync();
     }
 
     async Task SaveWorkout()
@@ -310,6 +334,8 @@
 
         Db.Workouts.Add(workout);
         await Db.SaveChangesAsync();
+
+        await ClearSnapshotAsync();
 
         workout = null;
         exerciseName = string.Empty;
@@ -333,12 +359,15 @@
         for (int i = 0; i < 4; i++)
             ex.Sets.Add(new SetEntity { Reps = defaultReps[i], Weight = 0 });
 
+        ex.Sets = ex.Sets.OrderByDescending(s => s.Reps).ToList();
+
         workout.AddExercise(ex);
         exerciseNameInputs[ex.Id] = ex.Name;
 
-        await Db.SaveChangesAsync();
         exerciseName = string.Empty;
         showAddExerciseInput = false;
+
+        await SaveSnapshotAsync();
     }
 
     async Task RemoveExercise(Guid exerciseId)
@@ -349,7 +378,7 @@
         if (exercise == null) return;
 
         workout.Exercises.Remove(exercise);
-        await Db.SaveChangesAsync();
+        await SaveSnapshotAsync();
     }
 
     async Task UpdateSetReps(SetEntity set, ChangeEventArgs e)
@@ -357,7 +386,7 @@
         if (int.TryParse(e.Value?.ToString(), out int reps))
         {
             set.Reps = reps;
-            await Db.SaveChangesAsync();
+            await SortAllSetsAndSave();
         }
     }
 
@@ -366,13 +395,55 @@
         if (double.TryParse(e.Value?.ToString(), out double weight))
         {
             set.Weight = weight;
-            await Db.SaveChangesAsync();
+            await SaveSnapshotAsync();
         }
-    }    
+    }
 
     void ToggleExerciseInput()
     {
         showAddExerciseInput = !showAddExerciseInput;
+    }
+
+    private async Task SortAllSetsAndSave()
+    {
+        foreach (var ex in workout.Exercises)
+        {
+            ex.Sets = ex.Sets.OrderByDescending(s => s.Reps).ToList();
+        }
+
+        await SaveSnapshotAsync();
+    }
+
+    private async Task SaveSnapshotAsync()
+    {
+        if (workout != null)
+        {
+            var json = JsonSerializer.Serialize(workout);
+            await JS.InvokeVoidAsync("localStorage.setItem", WorkoutSnapshotKey, json);
+        }
+    }
+
+    private async Task LoadSnapshotAsync()
+    {
+        var json = await JS.InvokeAsync<string>("localStorage.getItem", WorkoutSnapshotKey);
+        if (!string.IsNullOrWhiteSpace(json))
+        {
+            workout = JsonSerializer.Deserialize<Workout>(json);
+            showSummary = false;
+            showAddExerciseInput = false;
+            exerciseName = string.Empty;
+            exerciseNameInputs = workout.Exercises.ToDictionary(e => e.Id, e => e.Name);
+
+            foreach (var ex in workout.Exercises)
+            {
+                ex.Sets = ex.Sets.OrderByDescending(s => s.Reps).ToList();
+            }
+        }
+    }
+
+    private async Task ClearSnapshotAsync()
+    {
+        await JS.InvokeVoidAsync("localStorage.removeItem", WorkoutSnapshotKey);
     }
 
     [Inject]
